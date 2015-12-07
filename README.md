@@ -63,4 +63,4 @@ ymaps.route(
         });
 ``` 
 
-[Демо](http://bratva.github.io/ymaps-geo-motion/)
+[Демо](https://rawgithub.com/bratva/geoMotionObject/master/index.html)
