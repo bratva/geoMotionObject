@@ -17,7 +17,7 @@ ymaps.ready(function () {
             coordinates: [55.7571, 37.61681]
         }
     }, {
-        iconLayout: ymaps.templateLayoutFactory.createClass('<div class="maps__car maps__car_direction_$[properties.direction] maps__car_state_$[properties.state]"></div>'),
+        iconLayout: ymaps.templateLayoutFactory.createClass('<div class="car1 car1_direction_$[properties.direction] car1_state_$[properties.state]"></div>'),
         iconImageSize: [54, 54],
         iconOffset: [-27, -27],
         interactivityModel: 'default#opaque',
@@ -36,7 +36,7 @@ ymaps.ready(function () {
             coordinates: [55.7571, 37.61681]
         }
     }, {
-        iconLayout: ymaps.templateLayoutFactory.createClass('<div class="maps__car2 maps__car2_direction_$[properties.direction] car car_state_$[properties.state]" style="-webkit-transform: rotate($[properties.deg]deg); -ms-transform: rotate($[properties.deg]deg); transform: rotate($[properties.deg]deg);"></div>'),
+        iconLayout: ymaps.templateLayoutFactory.createClass('<div class="car2 car2_direction_$[properties.direction] car2_state_$[properties.state]" style="-webkit-transform: rotate($[properties.deg]deg); -ms-transform: rotate($[properties.deg]deg); transform: rotate($[properties.deg]deg);"></div>'),
         iconImageSize: [54, 54],
         iconOffset: [-27, -27],
         interactivityModel: 'default#opaque',
@@ -55,7 +55,7 @@ ymaps.ready(function () {
             coordinates: [55.7571, 37.61681]
         }
     }, {
-        iconLayout: ymaps.templateLayoutFactory.createClass('<div class="maps__girl maps__girl_direction_$[properties.direction]"></div>'),
+        iconLayout: ymaps.templateLayoutFactory.createClass('<div class="girl girl_direction_$[properties.direction]"></div>'),
         iconImageSize: [48, 48],
         iconOffset: [-24, -24],
         interactivityModel: 'default#opaque',
@@ -73,7 +73,6 @@ ymaps.ready(function () {
     map.controls.add(play, {float: 'right'});
     map.controls.add(abort, {float: 'right'});
 
-
     ymaps.route(
         [
             [55.7571, 37.61681],
@@ -85,8 +84,8 @@ ymaps.ready(function () {
 
             map.geoObjects.add(car1);
 
-            car1.moveOnPath(path).then(function () {
-                console.log('car 1 resolve');
+            car1.moveOnPath(path).then(function (status) {
+                console.log('car 1', status);
             });
 
         }, function (error) {
@@ -117,8 +116,8 @@ ymaps.ready(function () {
             map.geoObjects.add(route);
             map.geoObjects.add(car2);
 
-            car2.moveOnRoute(paths).then(function () {
-                console.log('car 2 resolve');
+            car2.moveOnRoute(paths).then(function (status) {
+                console.log('car 2', status);
             });
 
         }, function (error) {
@@ -145,8 +144,8 @@ ymaps.ready(function () {
     map.geoObjects.add(girlRoute);
     map.geoObjects.add(girl);
 
-    girl.moveOnPoints(girlRoutePoints, {time: 60, distance: girlRoute.geometry.getDistance()}).then(function () {
-        console.log('girl resolve');
+    girl.moveOnPoints(girlRoutePoints, {time: 60, distance: girlRoute.geometry.getDistance()}).then(function (status) {
+        console.log('girl', status);
     }, function (er) {
         console.log('girl err', er);
     });

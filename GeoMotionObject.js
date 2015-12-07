@@ -97,6 +97,7 @@ function GeoMotionObject(properties, options) {
 
     ymaps.util.augment(GeoMotionConstructor, ymaps.GeoObject, {
         /**
+         * Анимируем по переданному пути
          * @param {ymaps.Path} path
          * @param {Object} [options]
          * @param {Number} [options.time] - время прохождения маршрута
@@ -104,82 +105,10 @@ function GeoMotionObject(properties, options) {
          * @return {Promise}
          */
         moveOnPath: function (path, options) {
-            var dfd = ymaps.vow.defer();
+            var dfd = this._initDfd();
 
-            options = options || {};
-
-            if (!this._dfd || this._isResolved()) {
-                this._dfd = dfd;
-            }
-
-            var segments = path.getSegments();
-
-            if (!segments) {
-                return dfd.reject(new Error('No Segments'));
-            }
-
-            var points = getPointsFromSegments(segments);
-
-            var pathLength = options.distance || path.getLength(),
-                pathTime = options.time || path.getTime(),
-                speed = pathLength / pathTime;
-
-            // Мы не можем запустить анимацию, если машинки нет на карте
-            var map = this.getMap();
-            if (!map) {
-                return dfd.reject(new Error('The car is not added to the map'));
-            }
-
-            var projection = map.options.get('projection');
-
-            var stepSpacing = speed / (1000 / this._animate_timeout) * this._speedFactor;
-
-            // Получаем точечки
-            this.waypoints = this._makeWayPoints(points, stepSpacing, projection);
-
-            this._startAnimationTime = options.startAnimationTime || new Date().getTime();
-            this._animationTime = pathTime * 1000;
-
-            this._runAnimation().then(function () {
-                dfd.resolve();
-            }, function (er) {
-                dfd.reject(er);
-            });
-
-            return dfd.promise();
-        },
-
-        moveOnPoint: function (points, options) {
-            var dfd = ymaps.vow.defer();
-
-            options = options || {};
-
-            if (!this._dfd || this._isResolved()) {
-                this._dfd = dfd;
-            }
-
-            var pathLength = options.distance,
-                pathTime = options.time,
-                speed = pathLength / pathTime;
-
-            // Мы не можем запустить анимацию, если машинки нет на карте
-            var map = this.getMap();
-            if (!map) {
-                return dfd.reject(new Error('The car is not added to the map'));
-            }
-
-            var projection = map.options.get('projection');
-
-            var stepSpacing = speed / (1000 / this._animate_timeout) * this._speedFactor;
-
-            // Получаем точечки
-            this.waypoints = this._makeWayPoints(points, stepSpacing, projection);
-
-            this._startAnimationTime = options.startAnimationTime || new Date().getTime();
-            this._animationTime = pathTime * 1000;
-
-            this._runAnimation().then(function () {
-                dfd.resolve();
+            this._moveOnPath(path, options).then(function (status) {
+                dfd.resolve(status);
             }, function (er) {
                 dfd.reject(er);
             });
@@ -188,73 +117,48 @@ function GeoMotionObject(properties, options) {
         },
 
         /**
-         * @param {route} paths
-         * @param {Number} index
-         * @param {Object} [options]
-         * @private
-         */
-        _moveOnRouteStep: function (paths, index, options) {
-            var dfd = ymaps.vow.defer(),
-                self = this;
-
-            if (index === paths.getLength()) {
-                return dfd.resolve();
-            }
-
-            var way = paths.get(index);
-
-            return this.moveOnPath(way, options).then(function () {
-                return self._moveOnRouteStep(paths, ++index, options);
-            });
-        },
-
-        /**
+         * Анимируем от точки А к точке Б
          * @param {Array} points
-         * @param {Number} index
          * @param {Object} options
-         * @private
+         * @param {Number} options.time - время прохождения маршрута
+         * @param {Number} options.distance - дистанция
+         * @return {Promise}
          */
-        _moveOnPointStep: function (points, index, options) {
-            var dfd = ymaps.vow.defer(),
-                self = this;
+        moveOnPoint: function (points, options) {
+            var dfd = this._initDfd();
 
-            if (index >= points.length) {
-                return dfd.resolve();
+            if (!options) {
+                return dfd.reject(new Error('options is required'));
             }
 
-            var startPoint = points[index],
-                endPoint = points[index + 1];
-
-            return this.moveOnPoint([startPoint, endPoint], options).then(function () {
-                return self._moveOnPointStep(points, index += 2, options);
+            this._moveOnPoint(points, options).then(function (status) {
+                dfd.resolve(status);
+            }, function (er) {
+                dfd.reject(er);
             });
+
+            return dfd.promise();
         },
 
         /**
-         * Анимация по маршруту
+         * Анимация по маршруту (Набору путей)
          * @param {route} paths - Путь из роута route.getPaths();
          * @param {Object} [options]
          * @param {Number} [options.time] - Время прохождения пути (секунды)
          * @param {Number} [options.distance] - Дистанция (метры)
          */
         moveOnRoute: function (paths, options) {
-            var self = this;
-
-            if (this._dfd && !this._isResolved()) {
-                this._dfd.reject();
-            }
-
-            this._dfd = ymaps.vow.defer();
+            var dfd = this._initDfd();
 
             this._moveOnRouteStep(paths, 0, ymaps.util.extend({}, options, {
                 startAnimationTime: new Date().getTime()
-            })).then(function () {
-                self._dfd.resolve();
+            })).then(function (status) {
+                dfd.resolve(status);
             }, function (er) {
-                self._dfd.reject(er);
+                dfd.reject(er);
             });
 
-            return this._dfd.promise();
+            return dfd.promise();
         },
 
         /**
@@ -268,16 +172,12 @@ function GeoMotionObject(properties, options) {
         moveOnPoints: function (points, options) {
             var self = this;
 
-            if (this._dfd && !this._isResolved()) {
-                this._dfd.reject();
-            }
-
-            this._dfd = ymaps.vow.defer();
+            this._initDfd();
 
             this._moveOnPointStep(points, 0, ymaps.util.extend({}, options, {
                 startAnimationTime: new Date().getTime()
-            })).then(function () {
-                self._dfd.resolve();
+            })).then(function (status) {
+                self._dfd.resolve(status);
             }, function (er) {
                 self._dfd.reject(er);
             });
@@ -316,14 +216,6 @@ function GeoMotionObject(properties, options) {
         },
 
         /**
-         * Запросить состояние объекта
-         * @returns {String}
-         */
-        getState: function () {
-            return this.properties.get('state');
-        },
-
-        /**
          * Останавливаем и чистим
          */
         abort: function () {
@@ -331,11 +223,21 @@ function GeoMotionObject(properties, options) {
                 return;
             }
 
-            this.properties.set('state', '');
-            clearTimeout(this._animateTimer);
-            this.waypoints = [];
-
+            this._finished();
             this._dfd.resolve('aborted');
+        },
+
+        /**
+         * Запросить состояние объекта
+         * @returns {String}
+         */
+        getState: function () {
+            return this.properties.get('state');
+        },
+
+        _finished: function () {
+            clearTimeout(this._animateTimer);
+            this.properties.set('state', '');
         },
 
         /**
@@ -345,12 +247,15 @@ function GeoMotionObject(properties, options) {
          * @private
          */
         _runAnimation: function () {
-            var self = this;
             var dfd = ymaps.vow.defer();
 
             // Чистим прошлый таймаут
             if (this._animateTimer) {
                 clearTimeout(this._animateTimer);
+            }
+
+            if (!this._dfdTimer || this._dfdTimer._p.isResolved()) {
+                this._dfdTimer = dfd;
             }
 
             this.properties.set('state', 'moving');
@@ -359,36 +264,32 @@ function GeoMotionObject(properties, options) {
                 var now = new Date().getTime();
 
                 // если точек больше нет - значит приехали
-                if (self.waypoints.length === 0) {
-                    clearTimeout(self._animateTimer);
-                    self.properties.set('state', '');
-
-                    return dfd.resolve('completed');
+                if (this.waypoints.length === 0) {
+                    this._finished();
+                    return this._dfdTimer.resolve('completed');
                 }
 
                 // берем следующую точку
-                var nextPoint = self.waypoints.shift();
+                var nextPoint = this.waypoints.shift();
 
-                if (self._needAnimationTimeout && (now - self._startAnimationTime > self._animationTime)) {
-                    nextPoint = self.waypoints.pop() || nextPoint;
+                if (this._needAnimationTimeout && (now - this._startAnimationTime > this._animationTime)) {
+                    nextPoint = this.waypoints.pop() || nextPoint;
                     // перемещаем машинку
-                    self.geometry.setCoordinates(nextPoint.coords);
+                    this.geometry.setCoordinates(nextPoint.coords);
                     // ставим машинке правильное направление и угол поворота
-                    self.properties.set({direction: nextPoint.direction, deg: nextPoint.deg});
+                    this.properties.set({direction: nextPoint.direction, deg: nextPoint.deg});
 
-                    clearTimeout(self._animateTimer);
-                    self.properties.set('state', '');
-
-                    return dfd.resolve('completed');
+                    this._finished();
+                    return this._dfdTimer.resolve('completed');
                 }
 
                 // перемещаем машинку
-                self.geometry.setCoordinates(nextPoint.coords);
+                this.geometry.setCoordinates(nextPoint.coords);
                 // ставим машинке правильное направление и угол поворота
-                self.properties.set({direction: nextPoint.direction, deg: nextPoint.deg});
-            }, this._animate_timeout);
+                this.properties.set({direction: nextPoint.direction, deg: nextPoint.deg});
+            }.bind(this), this._animate_timeout);
 
-            return dfd.promise();
+            return this._dfdTimer.promise();
         },
 
         _isResolved: function () {
@@ -397,6 +298,107 @@ function GeoMotionObject(properties, options) {
             }
 
             return true;
+        },
+
+        _initDfd: function () {
+            var dfd = ymaps.vow.defer();
+
+            if (!this._dfd || this._isResolved()) {
+                this._dfd = dfd;
+            }
+
+            return this._dfd;
+        },
+
+        _buildRouteAndRunAnimation: function (points, options) {
+            var dfd = this._dfd;
+
+            var pathLength = options.distance,
+                pathTime = options.time,
+                speed = pathLength / pathTime;
+
+            // Мы не можем запустить анимацию, если машинки нет на карте
+            var map = this.getMap();
+            if (!map) {
+                return dfd.reject(new Error('The car is not added to the map'));
+            }
+
+            var projection = map.options.get('projection');
+
+            var stepSpacing = speed / (1000 / this._animate_timeout) * this._speedFactor;
+
+            // Получаем точечки
+            this.waypoints = this._makeWayPoints(points, stepSpacing, projection);
+
+            this._startAnimationTime = options.startAnimationTime || new Date().getTime();
+            this._animationTime = pathTime * 1000;
+
+            return this._runAnimation();
+        },
+
+        _moveOnPath: function (path, options) {
+            options = ymaps.util.extend({}, {
+                distance: path.getLength(),
+                time: path.getTime()
+            }, options);
+
+            var dfd = this._dfd;
+
+            var segments = path.getSegments();
+            if (!segments) {
+                return dfd.reject(new Error('No Segments'));
+            }
+
+            var points = getPointsFromSegments(segments);
+
+            return this._buildRouteAndRunAnimation(points, options);
+        },
+
+        _moveOnPoint: function (points, options) {
+            return this._buildRouteAndRunAnimation(points, options);
+        },
+
+        /**
+         * @param {route} paths
+         * @param {Number} index
+         * @param {Object} [options]
+         * @private
+         */
+        _moveOnRouteStep: function (paths, index, options) {
+            var dfd = ymaps.vow.defer(),
+                self = this;
+
+            if (index === paths.getLength()) {
+                return dfd.resolve();
+            }
+
+            var way = paths.get(index);
+
+            return this._moveOnPath(way, options).then(function () {
+                return self._moveOnRouteStep(paths, ++index, options);
+            });
+        },
+
+        /**
+         * @param {Array} points
+         * @param {Number} index
+         * @param {Object} options
+         * @private
+         */
+        _moveOnPointStep: function (points, index, options) {
+            var dfd = ymaps.vow.defer(),
+                self = this;
+
+            if (index >= points.length) {
+                return dfd.resolve();
+            }
+
+            var startPoint = points[index],
+                endPoint = points[index + 1];
+
+            return this._moveOnPoint([startPoint, endPoint], options).then(function () {
+                return self._moveOnPointStep(points, index += 2, options);
+            });
         },
 
         /**
