@@ -254,7 +254,7 @@ function GeoMotionObject(properties, options) {
                 clearTimeout(this._animateTimer);
             }
 
-            if (!this._dfdTimer || this._dfdTimer._p.isResolved()) {
+            if (!this._dfdTimer || this._dfdTimer._promise.isResolved()) {
                 this._dfdTimer = dfd;
             }
 
@@ -294,7 +294,7 @@ function GeoMotionObject(properties, options) {
 
         _isResolved: function () {
             if (this._dfd) {
-                return this._dfd._p.isResolved();
+                return this._dfd._promise.isResolved();
             }
 
             return true;
